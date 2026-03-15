@@ -14,7 +14,7 @@ By the end of this lab you will be able to:
 
 1. Navigate a Kubernetes cluster using `kubectl`.
 2. Run containers as Kubernetes Pods.
-3. Expose services with the correct Service type — `NodePort` for external access, `ClusterIP` for internal-only.
+3. Expose services with the correct Service type — `LoadBalancer` for external access, `ClusterIP` for internal-only.
 4. Separate application configuration using ConfigMaps and Secrets.
 5. Persist data across pod restarts using a PersistentVolumeClaim.
 6. Manage workloads with Deployments and observe automatic self-healing.
@@ -80,11 +80,11 @@ Four services working together:
 ```
   Browser
      │
-     │  HTTP (NodePort — your choice)
+     │  HTTP (LoadBalancer — via minikube tunnel)
      ▼
 ┌────────────────────┐
 │  frontend Service  │
-│  (type: NodePort)  │
+│ (type: LoadBalancer)│
 └─────────┬──────────┘
           │
           ▼
@@ -92,12 +92,12 @@ Four services working together:
 │   frontend Pod     │  (React + Vite — serves the UI)
 └────────────────────┘
           │
-          │  JS fetch calls to http://localhost:3000 (NodePort)
-          │  (browser → api NodePort directly)
+          │  JS fetch calls to http://localhost:3000 (LoadBalancer)
+          │  (browser → api LoadBalancer directly)
           ▼
 ┌────────────────────┐
 │    api Service     │
-│  (type: NodePort)  │
+│ (type: LoadBalancer)│
 └─────────┬──────────┘
           │
           ▼
@@ -195,7 +195,7 @@ Before starting, open `docker-compose.yml` alongside the `k8s/` directory. They 
 |--------------------------|----------------------------------------|----------------------------------------------------|
 | Run a container          | `services.<name>.image`                | `Pod` → `spec.containers`                          |
 | Internal service calls   | Container name DNS (`stats-service:4000`) | `ClusterIP` Service + same DNS convention        |
-| Expose to host machine   | `ports: "3000:3000"`                   | `NodePort` Service                                 |
+| Expose to host machine   | `ports: "3000:3000"`                   | `LoadBalancer` Service + `minikube tunnel`          |
 | Internal-only service    | Omit `ports:` entirely                 | `ClusterIP` Service (no nodePort)                  |
 | Non-sensitive config     | `environment:` inline                  | `ConfigMap` + `envFrom`                            |
 | Sensitive config         | `environment:` inline (not great)      | `Secret` + `secretKeyRef`                          |
@@ -323,7 +323,7 @@ You have two services to create this part — and they need different types:
 
 **api-service.yaml** — the API must be reachable from your browser (for `curl` and for the frontend).
 
-Open `k8s/03-service/api-service.yaml` and fill in every `???`:
+Open `k8s/03-service/api-service.yaml` and fill in every `???`. Use `LoadBalancer` as the type.
 
 ```bash
 kubectl apply -f k8s/03-service/api-service.yaml
@@ -332,16 +332,20 @@ kubectl get services
 
 **Accessing services from your machine**
 
-**minikube:** NodePort services are not directly reachable at `localhost` with the Docker driver on macOS. Run `minikube tunnel` in a dedicated terminal — it stays open and makes all NodePorts accessible at `localhost`:
+**minikube on macOS:** minikube runs inside a Docker container with its own network. The Kubernetes node IP is something like `192.168.49.2` — not your Mac's `localhost`. This means `NodePort` services are exposed on *that node IP*, not on `127.0.0.1`, so `curl http://localhost:<nodePort>` will fail.
+
+Using `type: LoadBalancer` plus `minikube tunnel` solves this. The tunnel creates a network route from your Mac into the minikube network and assigns `127.0.0.1` as the `EXTERNAL-IP` for every `LoadBalancer` service — making them reachable at a fixed `localhost:<port>`.
+
+Run `minikube tunnel` in a dedicated terminal — it must stay open for the entire lab:
 
 ```bash
 # Keep this running for the entire lab.
 minikube tunnel
 ```
 
-**Docker Desktop:** NodePorts are already reachable at `localhost` — no extra step needed.
+After starting the tunnel, `kubectl get services` should show `EXTERNAL-IP: 127.0.0.1` for the api service.
 
-Once the tunnel is running (or on Docker Desktop), use the `nodePort` you set in your Service manifest directly:
+**Docker Desktop:** `LoadBalancer` services are already reachable at `localhost` — no extra step needed.
 
 ```bash
 curl http://localhost:3000/
@@ -660,7 +664,7 @@ Submit your repository (zip or GitHub link) containing:
 
 - [ ] `k8s/02-pod/api-pod.yaml` — completed
 - [ ] `k8s/02-pod/stats-pod.yaml` — completed
-- [ ] `k8s/03-service/api-service.yaml` — completed (NodePort)
+- [ ] `k8s/03-service/api-service.yaml` — completed (LoadBalancer)
 - [ ] `k8s/03-service/stats-service.yaml` — completed (ClusterIP)
 - [ ] `k8s/04-configmap/configmap.yaml` — completed
 - [ ] `k8s/04-configmap/api-pod.yaml` — completed
@@ -681,8 +685,8 @@ Submit your repository (zip or GitHub link) containing:
 
 | Criteria                                                                                       | Marks |
 |------------------------------------------------------------------------------------------------|-------|
-| Both Pods start and the api responds on NodePort 30000                                         | 1     |
-| `api-service.yaml` — NodePort correct; `stats-service.yaml` — ClusterIP, no external port     | 1     |
+| Both Pods start and the api responds at `http://localhost:3000`                                | 1     |
+| `api-service.yaml` — LoadBalancer correct; `stats-service.yaml` — ClusterIP, no external port | 1     |
 | `configmap.yaml` — `STATS_SERVICE_URL` set correctly; consumed via `envFrom` in api pod       | 1     |
 | `api-secret.yaml` — API key stored as Secret; both pods use `secretKeyRef` for `DATABASE_URL` | 1     |
 | Postgres PVC — data survives a pod deletion                                                    | 1     |

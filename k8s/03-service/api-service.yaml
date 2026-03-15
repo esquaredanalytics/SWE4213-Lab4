@@ -5,16 +5,17 @@
 # which changes every time the Pod is replaced.
 #
 # Service types:
-#   ClusterIP   — reachable only inside the cluster (default)
-#   NodePort    — also reachable from your machine at localhost:<nodePort>
-#   LoadBalancer — also reachable from the internet (requires a cloud provider)
+#   ClusterIP    — reachable only inside the cluster (default)
+#   NodePort     — reachable at <node-ip>:<nodePort> (awkward on macOS/minikube)
+#   LoadBalancer — gets an external IP on cloud providers; on minikube, run
+#                  `minikube tunnel` to expose it at localhost
 #
 # Fill in every ??? below, then apply with:
 #   kubectl apply -f k8s/03-service/api-service.yaml
 #
-# Verify with:
-#   kubectl get services
-#   curl http://localhost:<your-nodePort>/health
+# Verify (minikube tunnel must be running):
+#   kubectl get services        # wait for EXTERNAL-IP to show 127.0.0.1
+#   curl http://localhost:3000/health
 
 apiVersion: v1
 kind: Service
@@ -23,9 +24,7 @@ metadata:
 spec:
   selector:
     app: ???        # Must match the label you set on the Pod in Part 2.
-                    # This is how the Service knows which Pods to send traffic to.
-  type: ???         # Which type exposes the service to your machine?
+  type: LoadBalancer
   ports:
-    - port: ???         # Port the Service listens on inside the cluster.
+    - port: 3000        # Port the Service listens on — this is what you curl.
       targetPort: ???   # Port on the Pod to forward traffic to.
-      nodePort: ???     # Port on your machine (must be in range 30000–32767).

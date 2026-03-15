@@ -1,9 +1,10 @@
 # Part 7 — Service (frontend)
 #
-# The frontend needs to be reachable from your browser, so it needs a NodePort.
-# Fill in every ???, then open http://localhost:<your-nodePort> in a browser.
+# LoadBalancer type — with minikube tunnel running, the frontend will be
+# accessible at http://localhost:4173 in your browser.
 #
-# Use a different nodePort than the api service (e.g. 30001).
+# Fill in the selector ???, then apply:
+#   kubectl apply -f k8s/07-deployment/frontend-service.yaml
 
 apiVersion: v1
 kind: Service
@@ -11,9 +12,8 @@ metadata:
   name: frontend
 spec:
   selector:
-    app: ???
-  type: NodePort
+    app: ???    # Must match the label on the frontend Deployment pod template.
+  type: LoadBalancer
   ports:
     - port: 4173
-      targetPort: ???   # Port the frontend container listens on. Check the Dockerfile.
-      nodePort: ???     # Port on your machine (30000–32767, different from api).
+      targetPort: 4173
