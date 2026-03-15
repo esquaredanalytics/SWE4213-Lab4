@@ -127,8 +127,8 @@ Four services working together:
 
 | Service         | Type        | Reachable from             | Why                                               |
 |-----------------|-------------|----------------------------|---------------------------------------------------|
-| `frontend`      | NodePort    | Browser (localhost:&lt;frontend-nodePort&gt;)  | Users need to open it in a browser                |
-| `api`           | NodePort    | Browser (`http://localhost:30001`)       | Frontend JS calls it directly from the browser    |
+| `frontend`      | LoadBalancer | Browser (`http://localhost:4173`)      | Users need to open it in a browser                |
+| `api`           | LoadBalancer | Browser (`http://localhost:3000`)       | Frontend JS calls it directly from the browser    |
 | `stats-service` | ClusterIP   | Inside cluster only        | Only `api` calls it — no reason to expose it publicly |
 | `postgres`      | ClusterIP   | Inside cluster only        | Only `api` and `stats-service` need it            |
 
@@ -344,21 +344,21 @@ minikube tunnel
 Once the tunnel is running (or on Docker Desktop), use the `nodePort` you set in your Service manifest directly:
 
 ```bash
-curl http://localhost:30001/
+curl http://localhost:3000/
 ```
 
 Test from your machine:
 
 ```bash
-curl http://localhost:30001/
-curl http://localhost:30001/health
-curl http://localhost:30001/notes
+curl http://localhost:3000/
+curl http://localhost:3000/health
+curl http://localhost:3000/notes
 ```
 
 Create a note:
 
 ```bash
-curl -X POST http://localhost:30001/notes \
+curl -X POST http://localhost:3000/notes \
      -H "Content-Type: application/json" \
      -d '{"title":"hello","content":"my first note"}'
 ```
@@ -387,7 +387,7 @@ curl http://stats-service:4000/stats
 Now test the proxied stats endpoint through the api:
 
 ```bash
-curl http://localhost:30001/stats
+curl http://localhost:3000/stats
 ```
 
 The api calls `stats-service:4000/stats` internally and returns the result.
@@ -415,7 +415,7 @@ kubectl apply -f k8s/04-configmap/api-pod.yaml
 Verify `STATS_SERVICE_URL` was picked up:
 
 ```bash
-curl http://localhost:30001/stats
+curl http://localhost:3000/stats
 ```
 
 The api now reads `STATS_SERVICE_URL` from the ConfigMap instead of having it hardcoded.
@@ -468,7 +468,7 @@ Kubernetes Pods are ephemeral — data written to a container's filesystem is lo
 **Show the problem:**
 
 ```bash
-curl -X POST http://localhost:30001/notes \
+curl -X POST http://localhost:3000/notes \
      -H "Content-Type: application/json" \
      -d '{"title":"important","content":"do not lose this"}'
 
@@ -478,7 +478,7 @@ kubectl get pods -w   # wait for Running
 ```
 
 ```bash
-curl http://localhost:30001/notes   # data is gone
+curl http://localhost:3000/notes   # data is gone
 ```
 
 **The fix — PersistentVolumeClaims:**
@@ -499,7 +499,7 @@ kubectl get pods -w
 Verify persistence:
 
 ```bash
-curl -X POST http://localhost:30001/notes \
+curl -X POST http://localhost:3000/notes \
      -H "Content-Type: application/json" \
      -d '{"title":"important","content":"this should survive"}'
 
@@ -507,7 +507,7 @@ curl -X POST http://localhost:30001/notes \
 kubectl delete pod -l app=postgres
 kubectl get pods -w
 
-curl http://localhost:30001/notes   # note is still there
+curl http://localhost:3000/notes   # note is still there
 ```
 
 ---
@@ -544,7 +544,7 @@ kubectl get pods
 kubectl rollout status deployment/api
 ```
 
-Open `http://localhost:<your-frontend-nodePort>` in a browser. You should see the notes UI. Create a note and click **Refresh Stats**.
+Open `http://localhost:4173` in a browser. You should see the notes UI. Create a note and click **Refresh Stats**.
 
 **Self-healing demo:**
 
@@ -572,9 +572,9 @@ kubectl get pods
 Hit `GET /` several times and notice the `pod` field changing — requests are load-balanced across all three replicas:
 
 ```bash
-curl http://localhost:30001/
-curl http://localhost:30001/
-curl http://localhost:30001/
+curl http://localhost:3000/
+curl http://localhost:3000/
+curl http://localhost:3000/
 ```
 
 Scale back to 1 before Part 8:
@@ -630,7 +630,7 @@ In your first terminal, run the load test:
 
 ```bash
 chmod +x load-test.sh
-./load-test.sh http://localhost:30001
+./load-test.sh http://localhost:3000
 ```
 
 Within 1–2 minutes you should see:
