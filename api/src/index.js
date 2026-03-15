@@ -49,9 +49,13 @@ app.post('/notes', async (req, res) => {
 });
 
 app.get('/stats', async (req, res) => {
-    const response = await fetch(`${STATS_SERVICE_URL}/stats`);
-    const data = await response.json();
-    res.json(data);
+    try {
+        const response = await fetch(`${STATS_SERVICE_URL}/stats`);
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        res.status(503).json({ error: `Could not reach stats-service: ${err.message}` });
+    }
 });
 
 app.delete('/notes/:id', async (req, res) => {
