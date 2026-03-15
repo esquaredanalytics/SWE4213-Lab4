@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 // The API is exposed via a NodePort. This default matches the nodePort
 // value the lab specifies for api-service.yaml. If you used a different
 // port, update this value and rebuild the image.
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:30000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export default function App() {
   const [notes, setNotes] = useState([]);
