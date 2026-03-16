@@ -1,5 +1,15 @@
 # Lab 4: Kubernetes
 
+> **Docker Desktop vs minikube**
+>
+> This lab works with either tool, but networking behaves differently:
+>
+> - **Docker Desktop** shares the same Docker daemon as your Mac and routes `LoadBalancer` services to `localhost` automatically. No extra steps needed — `kubectl apply` and you can `curl localhost:<port>` immediately.
+>
+> - **minikube** runs Kubernetes inside its own Docker container with a separate network. Its node IP (e.g. `192.168.49.2`) is not your Mac's `localhost`, so services are not reachable at `localhost` by default. You must run `minikube tunnel` in a dedicated terminal to bridge the gap, and all externally-facing services must use `type: LoadBalancer` (not `NodePort`) for the tunnel to expose them at `127.0.0.1`.
+>
+> The choice is yours :)
+
 ## Overview
 
 In this lab you will deploy a multi-service notes application to a local Kubernetes cluster. The system has four services: a React-style frontend, an API, a stats microservice, and a Postgres database. You will build the system up one resource type at a time — each part introduces a single Kubernetes concept and adds one piece to a running whole.
@@ -249,13 +259,24 @@ minikube addons enable metrics-server
 ```
 
 **Docker Desktop:**
+
+Docker Desktop does not bundle a metrics server, so you need to install one. The default install often fails TLS verification against the kubelet — patch it with `--kubelet-insecure-tls` to fix this:
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+kubectl patch deployment metrics-server -n kube-system \
+  --type='json' \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+```
+
+Wait about 60 seconds, then verify:
+
 ```bash
 kubectl top nodes
 ```
-If this errors, install the metrics server:
-```bash
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-```
+
+You should see CPU and memory figures. If it still errors, wait another minute and retry — the metrics server takes a moment to collect its first sample.
 
 ---
 
@@ -532,6 +553,8 @@ You have three Deployments to write this part: `api`, `stats-service`, and `fron
 **stats-deployment.yaml** — open `k8s/07-deployment/stats-deployment.yaml` and fill in every `???`. The pattern is identical to `api-deployment.yaml`.
 
 **frontend-deployment.yaml and frontend-service.yaml** — open both files and fill in every `???`. The frontend has no secrets or configmap — only the structural fields need completing.
+
+> **Note:** Deploying the frontend inside the cluster is one valid approach, but it is not the only one. In production, frontends are commonly served from a CDN (e.g. Vercel, Netlify, CloudFront) — the built static files are distributed globally without ever touching your Kubernetes cluster. The cluster then only handles API traffic. Including the frontend here gives you practice with Deployments and LoadBalancer services, but keep in mind it is an architectural choice, not a requirement.
 
 Remove the bare pods and apply the Deployments:
 
